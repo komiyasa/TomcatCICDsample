@@ -1,39 +1,46 @@
-# Docker
-# Build and push an image to Azure Container Registry
-# https://docs.microsoft.com/azure/devops/pipelines/languages/docker
+pool:
+  name: Hosted Ubuntu 1604
+  demands: maven
 
-trigger:
-- master
+steps:
+- task: Maven@3
+  displayName: 'Maven pom.xml'
+  inputs:
+    options: '-DskipITs --settings ./maven/settings.xml'
+    publishJUnitResults: false
+    codeCoverageToolOption: JaCoCo
+    codeCoverageSourceDirectories: src/main
 
-resources:
-- repo: self
+- task: CopyFiles@2
+  displayName: 'Copy WAR file'
+  inputs:
+    SourceFolder: '$(build.sourcesdirectory)'
+    Contents: |
+     target/myshuttledev*.war
+     *.sql
+    TargetFolder: '$(build.artifactstagingdirectory)'
 
-variables:
-  # Container registry service connection established during pipeline creation
-  dockerRegistryServiceConnection: 'b0b282c1-6ad5-4b0a-a54d-7bc6548ef027'
-  imageRepository: 'komiyasatomcatcicdsample'
-  containerRegistry: 'komiyasashuttle.azurecr.io'
-  dockerfilePath: '$(Build.SourcesDirectory)/src/Dockerfile'
-  tag: '$(Build.BuildId)'
+- task: PublishBuildArtifacts@1
+  displayName: 'Publish Artifact: drop'
+  inputs:
+    PathtoPublish: '$(build.artifactstagingdirectory)'
 
-  # Agent VM image name
-  vmImageName: 'ubuntu-latest'
+- task: Docker@1
+  displayName: 'Build an image'
+  inputs:
+    azureSubscriptionEndpoint: 'Microsoft Azure 社内従量課金プラン (198db33e-6c48-4695-92d5-f761cc1a3a2b)'
+    azureContainerRegistry: komiyasashuttle.azurecr.io
+    dockerFile: src/Dockerfile
+    imageName: 'Web:$(Build.BuildNumber)'
+    includeLatestTag: true
+    useDefaultContext: false
+    buildContext: .
 
-stages:
-- stage: Build
-  displayName: Build and push stage
-  jobs:
-  - job: Build
-    displayName: Build
-    pool:
-      vmImage: $(vmImageName)
-    steps:
-    - task: Docker@2
-      displayName: Build and push an image to container registry
-      inputs:
-        command: buildAndPush
-        repository: $(imageRepository)
-        dockerfile: $(dockerfilePath)
-        containerRegistry: $(dockerRegistryServiceConnection)
-        tags: |
-          $(tag)
+- task: Docker@1
+  displayName: 'Push an image'
+  inputs:
+    azureSubscriptionEndpoint: 'Microsoft Azure 社内従量課金プラン (198db33e-6c48-4695-92d5-f761cc1a3a2b)'
+    azureContainerRegistry: komiyasashuttle.azurecr.io
+    command: 'Push an image'
+    imageName: 'Web:$(Build.BuildNumber)'
+
