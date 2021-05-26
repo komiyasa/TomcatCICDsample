@@ -1,0 +1,46 @@
+pool:
+  name: Hosted Ubuntu 1604
+  demands: maven
+
+steps:
+- task: Maven@3
+  displayName: 'Maven pom.xml'
+  inputs:
+    options: '-DskipITs --settings ./maven/settings.xml'
+    publishJUnitResults: false
+    codeCoverageToolOption: JaCoCo
+    codeCoverageSourceDirectories: src/main
+
+- task: CopyFiles@2
+  displayName: 'Copy WAR file'
+  inputs:
+    SourceFolder: '$(build.sourcesdirectory)'
+    Contents: |
+     target/myshuttledev*.war
+     *.sql
+    TargetFolder: '$(build.artifactstagingdirectory)'
+
+- task: PublishBuildArtifacts@1
+  displayName: 'Publish Artifact: drop'
+  inputs:
+    PathtoPublish: '$(build.artifactstagingdirectory)'
+
+- task: Docker@1
+  displayName: 'Build an image'
+  inputs:
+    azureSubscriptionEndpoint: 'Microsoft Azure 社内従量課金プラン (198db33e-6c48-4695-92d5-f761cc1a3a2b)'
+    azureContainerRegistry: komiyasashuttle.azurecr.io
+    dockerFile: src/Dockerfile
+    imageName: 'Web:$(Build.BuildNumber)'
+    includeLatestTag: true
+    useDefaultContext: false
+    buildContext: .
+
+- task: Docker@1
+  displayName: 'Push an image'
+  inputs:
+    azureSubscriptionEndpoint: 'Microsoft Azure 社内従量課金プラン (198db33e-6c48-4695-92d5-f761cc1a3a2b)'
+    azureContainerRegistry: komiyasashuttle.azurecr.io
+    command: 'Push an image'
+    imageName: 'Web:$(Build.BuildNumber)'
+
